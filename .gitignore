@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.env
+
+# Entornos e IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# LaTeX temporales de compilación
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+
+# PDFs autogenerados (descomentar si no se desea subir el PDF final)
+# *.pdf
+# !Proyecto 3 2026.pdf

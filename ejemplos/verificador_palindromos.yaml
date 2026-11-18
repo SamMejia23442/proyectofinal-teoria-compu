@@ -1,0 +1,76 @@
+mt:
+  estados:
+    - q_start
+    - q_saw0_move
+    - q_saw1_move
+    - q_find_end0
+    - q_find_end1
+    - q_check0
+    - q_check1
+    - q_return_move
+    - q_return_left
+    - q_clean_start
+    - q_clean_left
+    - q_clean_move
+    - q_halt
+  alfabeto: ["0", "1", B, Y, N]
+  estado_inicial: q_start
+  blanco: B
+  transiciones:
+    # --- Fase 1: Leer el extremo izquierdo ---
+    # Si lee 0, lo borra con B y pasa a buscar coincidencia en el extremo derecho
+    - q_start 0 B q_saw0_move
+    # Si lee 1, lo borra con B y pasa a buscar coincidencia en el extremo derecho
+    - q_start 1 B q_saw1_move
+    # Si lee B, la cadena terminó con éxito (palíndromo par o vacía) -> Escribe Y y para
+    - q_start B Y q_halt
+
+    # Mover cabezal a la derecha después de borrar el símbolo izquierdo
+    - q_saw0_move B R q_find_end0
+    - q_saw1_move B R q_find_end1
+
+    # --- Fase 2: Recorrer hacia la derecha buscando el fin de la cadena ---
+    - q_find_end0 0 R q_find_end0
+    - q_find_end0 1 R q_find_end0
+    - q_find_end0 B L q_check0
+
+    - q_find_end1 0 R q_find_end1
+    - q_find_end1 1 R q_find_end1
+    - q_find_end1 B L q_check1
+
+    # --- Fase 3: Comparar el extremo derecho ---
+    # Para 0:
+    # Si encuentra B, era el símbolo central de una cadena de longitud impar -> Aceptada (Y)
+    - q_check0 B Y q_halt
+    # Si encuentra 0, coincide! Se borra con B y se prepara el regreso a la izquierda
+    - q_check0 0 B q_return_move
+    # Si encuentra 1, no coincide -> Rechazada (N) y limpia el resto de la cinta
+    - q_check0 1 N q_clean_start
+
+    # Para 1:
+    # Si encuentra B, era el símbolo central de una cadena de longitud impar -> Aceptada (Y)
+    - q_check1 B Y q_halt
+    # Si encuentra 1, coincide! Se borra con B y se prepara el regreso a la izquierda
+    - q_check1 1 B q_return_move
+    # Si encuentra 0, no coincide -> Rechazada (N) y limpia el resto de la cinta
+    - q_check1 0 N q_clean_start
+
+    # Mover cabezal a la izquierda tras borrar el símbolo derecho coincidente
+    - q_return_move B L q_return_left
+
+    # --- Fase 4: Retornar hacia la izquierda hasta el inicio de la cadena ---
+    - q_return_left 0 L q_return_left
+    - q_return_left 1 L q_return_left
+    # Al encontrar el blanco a la izquierda, avanzar 1 a la derecha para iniciar el siguiente ciclo
+    - q_return_left B R q_start
+
+    # --- Fase 5: Limpieza de cinta en caso de Rechazo (deja únicamente 'N') ---
+    # Tras escribir 'N', se mueve a la izquierda para borrar residuos
+    - q_clean_start N L q_clean_left
+    - q_clean_left 0 B q_clean_move
+    - q_clean_left 1 B q_clean_move
+    # Si encuentra B, la cinta ya quedó limpia con solo 'N' en el extremo derecho
+    - q_clean_left B R q_halt
+
+    # Mover a la izquierda tras borrar un símbolo intermedio
+    - q_clean_move B L q_clean_left

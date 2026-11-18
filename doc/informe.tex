@@ -1,0 +1,469 @@
+\documentclass[11pt,letterpaper]{article}
+
+% --- Paquetes de Formato y Tipografía ---
+\usepackage[spanish,es-tabla]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning, fit, calc}
+
+% --- Configuración de Enlaces ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=blue!70!black,
+    urlcolor=blue!70!black
+}
+
+% --- Configuración para Listados de Código y YAML ---
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    frame=single
+}
+\lstset{style=mystyle}
+
+% --- Estilos de Diagrama TikZ ---
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=red!20]
+\tikzstyle{process} = [rectangle, minimum width=2.8cm, minimum height=0.8cm, text centered, draw=black, fill=orange!20]
+\tikzstyle{decision} = [diamond, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=green!20, aspect=2]
+\tikzstyle{io} = [trapezium, trapezium left angle=70, trapezium right angle=110, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=blue!20]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+% --- Información de Portada ---
+\title{
+    \vspace{-1.5cm}
+    \textbf{Universidad del Valle de Guatemala}\\
+    \large Facultad de Ingeniería — Departamento de Ciencias de la Computación\\
+    CC2019: Teoría de la Computación (Sección 30)\\
+    Semestre 2, 2026\\[1.5cm]
+    \LARGE \textbf{Proyecto \#3: Simulador Universal de Máquinas de Turing}\\[0.5cm]
+    \large Informe Técnico de Implementación, Especificación Formal y Análisis Asintótico
+}
+
+\author{
+    \textbf{Samuel Mejía} — Carnet: \textit{23442}\\[0.2cm]
+    \small \textit{Docente:} Tomás Gálvez P.
+}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\vspace{0.5cm}
+
+\begin{abstract}
+En este informe se presenta el diseño, especificación formal e implementación de un simulador universal de Máquinas de Turing deterministas estándar de una cinta infinita bidireccional y cabezal único. El motor interpreta especificaciones en formato YAML basadas en la convención formal de cuádruplas $(\text{origen}, \text{símbolo}, \text{acción}, \text{destino})$, incorporando programación defensiva integral contra especificaciones mal formadas, transiciones no deterministas o entradas inválidas. Asimismo, se documenta la computación paso a paso mediante Descripciones Instantáneas (IDs), el control de ejecución preventivo con cancelación de ciclos indefinidos, y la demostración formal de la tasa de crecimiento asintótico para dos máquinas originales: un \textit{Predecesor Binario} ($O(n)$) y un \textit{Verificador de Palíndromos} ($O(n^2)$).
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ========================================================
+\section{Introducción y Marco Teórico}
+% ========================================================
+
+La Máquina de Turing (MT), formulada por Alan Turing en 1936, constituye el modelo matemático fundacional de la computación universal. Formalmente, una Máquina de Turing determinista estándar se define como una 7-tupla:
+\begin{equation}
+M = (Q, \Sigma, \Gamma, \delta, q_0, B, F)
+\end{equation}
+donde $Q$ representa el conjunto finito de estados, $\Sigma$ es el alfabeto de entrada, $\Gamma$ es el alfabeto de la cinta ($\Sigma \subset \Gamma$), $B \in \Gamma \setminus \Sigma$ es el símbolo de espacio en blanco, $q_0 \in Q$ es el estado de inicio y $F \subseteq Q$ es el conjunto de estados de aceptación o parada.
+
+\subsection{El Modelo de Cuádruplas de Post-Davis}
+En los cursos modernos de Teoría de la Computación, la función de transición tradicional basada en quíntuplas $\delta: Q \times \Gamma \to Q \times \Gamma \times \{L, R\}$ se descompone con frecuencia en el \textbf{modelo formal de cuádruplas} (introducido por Emil Post y Martin Davis). En este modelo, una transición se expresa como:
+\begin{equation}
+(q_i, s_j, a_k, q_l)
+\end{equation}
+donde la acción $a_k$ es estrictamente atómica:
+\begin{enumerate}
+    \item \textbf{Movimiento del cabezal:} $a_k \in \{L, R\}$. El cabezal se desplaza una casilla a la izquierda ($L$) o a la derecha ($R$), preservando el símbolo actual de la cinta.
+    \item \textbf{Escritura sobre la cinta:} $a_k \in \Gamma$. El cabezal sobreescribe la casilla actual con el símbolo $a_k$, permaneciendo en la misma posición de la cinta.
+\end{enumerate}
+
+Ambos modelos son computacionalmente equivalentes: cualquier quíntupla $(q_i, s_j, s'_j, D, q_l)$ se simula de manera idéntica mediante dos cuádruplas sucesivas incorporando un estado intermedio efímero:
+\begin{equation}
+(q_i, s_j, s'_j, q_{\text{temp}}) \quad \text{y} \quad (q_{\text{temp}}, s'_j, D, q_l)
+\end{equation}
+
+\subsection{Descripciones Instantáneas (IDs)}
+Para registrar formalmente el estado de la máquina en cada instante temporal de la computación, se emplea la notación de \textbf{Descripciones Instantáneas (Instantaneous Descriptions, IDs)}. Una ID se denota por:
+\begin{equation}
+\alpha [q] \beta
+\end{equation}
+donde $\alpha \in \Gamma^*$ es la secuencia de símbolos no blancos a la izquierda del cabezal, $q \in Q$ es el estado actual de la unidad de control, y $\beta \in \Gamma^+$ representa la porción de la cinta que comienza exactamente en la casilla actual leída por el cabezal y concluye en el último símbolo no blanco a la derecha.
+
+% ========================================================
+\section{Especificación de Sintaxis YAML y Símbolo de Blanco}
+% ========================================================
+
+\subsection{Sintaxis Formal del Archivo YAML}
+La especificación de la Máquina de Turing se provee mediante un archivo con sintaxis YAML bajo la clave raíz obligatoria \texttt{mt}. La estructura esperada se define a continuación:
+
+\begin{lstlisting}[language=SQL, caption={Plantilla formal de especificación YAML.}]
+mt:
+  estados: [q0, q1, q2, q_fin]          # Lista exhaustiva de estados
+  alfabeto: ["0", "1", B, Y, N]         # Alfabeto unificado (entrada y cinta)
+  estado_inicial: q0                    # Estado de arranque de la maquina
+  blanco: B                             # Simbolo para espacios vacios
+  transiciones:                         # Lista de cuadruplas separadas por espacios
+    - q0 0 R q0
+    - q0 1 R q0
+    - q0 B L q1
+    - q1 1 0 q2
+\end{lstlisting}
+
+\subsection{Identificación del Símbolo para Espacios en Blanco}
+\begin{itemize}
+    \item Por estándar del proyecto, el símbolo que representa los espacios en blanco sobre la cinta es la letra mayúscula \textbf{\texttt{B}} (\textit{Blank}).
+    \item El simulador admite de forma opcional la clave explícita \texttt{blanco} en el archivo YAML para definir símbolos alternativos (como el guion bajo \texttt{\_}). Si la clave se omite, el analizador detecta automáticamente \texttt{B} o \texttt{\_} dentro de la lista de alfabeto declarada.
+    \item \textbf{Cinta Infinita:} Las posiciones no inicializadas de la cinta hacia la izquierda ($-\infty, \dots, -1$) y hacia la derecha ($n, \dots, +\infty$) se consideran implícitamente pobladas por el símbolo de blanco \texttt{B}.
+\end{itemize}
+
+\subsection{Mecanismos de Programación Defensiva}
+El simulador incorpora un módulo de validación estricta (\texttt{parser.py}) que rechaza cualquier especificación inconsistente antes de iniciar la ejecución:
+\begin{table}[h!]
+\centering
+\small
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Condición Defensiva} & \textbf{Validación y Acción del Simulador} \\
+\midrule
+Estructura y Sintaxis YAML & Verifica existencia del archivo, formato sintáctico y presencia de las claves obligatorias (\texttt{estados}, \texttt{alfabeto}, \texttt{estado\_inicial}, \texttt{transiciones}). \\
+Integridad de Conjuntos & Valida que los estados y los caracteres del alfabeto sean únicos, no nulos y tengan longitud 1 en el alfabeto. \\
+Estado Inicial & Asegura que \texttt{estado\_inicial} pertenezca formalmente al conjunto \texttt{estados}. \\
+Formato de Cuádruplas & Comprueba que cada regla posea exactamente 4 elementos separados por espacios: \texttt{origen simbolo accion destino}. \\
+Consistencia de Transición & Corrobora que \texttt{origen} y \texttt{destino} $\in Q$, que \texttt{simbolo} $\in \Gamma$ y que la acción sea válida ($R, L$ o un símbolo $\in \Gamma$). \\
+No-Determinismo & Detecta reglas duplicadas para un mismo par $(q_{\text{actual}}, s_{\text{leído}})$ y aborta inmediatamente con mensaje de error específico. \\
+Validación de la Entrada & Contrasta cada carácter de la cadena recibida contra el alfabeto declarado antes de inicializar la cinta. \\
+\bottomrule
+\end{tabularx}
+\caption{Matriz de validaciones y programación defensiva implementada.}
+\end{table}
+
+% ========================================================
+\section{Manual de Uso del Simulador}
+% ========================================================
+
+\subsection{Requisitos y Configuración del Entorno}
+El software está programado en Python 3 (versión 3.8 o superior) y requiere la instalación del paquete \texttt{PyYAML}:
+\begin{lstlisting}[language=bash]
+# Clonar el repositorio
+git clone https://github.com/SamMejia23442/proyectofinal-teoria-compu.git
+cd proyectofinal-teoria-compu
+
+# Instalar dependencias
+pip install -r requirements.txt
+\end{lstlisting}
+
+\subsection{Modo Interactivo (Por Menú)}
+Al invocar el programa sin parámetros en la terminal, se despliega una consola interactiva:
+\begin{lstlisting}[language=bash]
+python3 main.py
+\end{lstlisting}
+El menú ofrece la selección directa de las máquinas de ejemplo, ingreso de cadenas de prueba personalizadas y opción para habilitar la simulación paso a paso.
+
+\subsection{Modo Línea de Comandos (CLI)}
+Para automatización, pruebas unitarias o ejecución directa:
+\begin{lstlisting}[language=bash]
+# Sintaxis general:
+python3 main.py <archivo_yaml> [cadena_entrada] [opciones]
+
+# Ejemplo 1: Predecesor Binario para la entrada 1100
+python3 main.py ejemplos/predecesor_binario.yaml 1100
+
+# Ejemplo 2: Verificador de Palindromos para 10101
+python3 main.py ejemplos/verificador_palindromos.yaml 10101
+
+# Ejemplo 3: Ejecucion paso a paso interactiva
+python3 main.py ejemplos/verificador_palindromos.yaml 10101 -s
+\end{lstlisting}
+
+\subsubsection{Banderas y Parámetros Disponibles}
+\begin{itemize}
+    \item \texttt{-s}, \texttt{--paso-a-paso}: Pausa la ejecución tras cada transición. Permite avanzar manualmente presionando \texttt{Enter}, pasar a modo continuo automático ingresando \texttt{t}, o cancelar la computación con \texttt{c}.
+    \item \texttt{--sin-visual}: Omite la tira gráfica de casillas de la cinta en consola, imprimiendo únicamente la lista formal de IDs.
+    \item \texttt{--limite <N>}: Configura un límite preventivo de $N$ pasos para interrumpir bucles infinitos en máquinas de Turing generales.
+    \item \texttt{--no-color}: Desactiva los colores ANSI para terminales planas o redirección a archivos de texto.
+\end{itemize}
+
+\subsection{Control de Ejecución y Cancelación}
+De acuerdo con las restricciones del proyecto, el simulador no impone restricciones artificiales a la cinta ni a la cantidad de pasos. No obstante, para casos con resultados indefinidos (lenguajes indecidibles o bucles infinitos), el usuario puede presionar \textbf{\texttt{Ctrl+C}} en cualquier instante. El simulador intercepta la señal \texttt{SIGINT} de forma limpia, reporta el motivo de parada como cancelación por el usuario, e imprime el resumen de los pasos ejecutados y la ID alcanzada sin generar volcados de pila (\textit{stack traces}) descontrolados.
+
+% ========================================================
+\section{Diagrama de Flujo del Algoritmo de Simulación}
+% ========================================================
+
+La Figura~\ref{fig:flowchart} esquematiza el ciclo de vida computacional del simulador, desde la lectura de la especificación YAML hasta la extracción del resultado final en la cinta.
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[node distance=1.3cm, scale=0.88, every node/.style={scale=0.88}]
+    \node (start) [startstop] {Inicio};
+    \node (read_yaml) [process, below of=start] {Cargar archivo YAML};
+    \node (val_yaml) [decision, below of=read_yaml, yshift=-0.4cm] {¿YAML válido?\\Defensa OK?};
+    \node (err_spec) [startstop, right of=val_yaml, xshift=2.5cm, fill=red!40] {Abortar: Error\\de especificación};
+    
+    \node (init_tape) [process, below of=val_yaml, yshift=-0.5cm] {Inicializar Cinta infinita\\$w \in \Gamma^*$, Cabezal en pos $0$};
+    \node (val_input) [decision, below of=init_tape, yshift=-0.4cm] {¿Símbolos de $w$\\pertenecen a $\Sigma$?};
+    \node (err_input) [startstop, right of=val_input, xshift=2.5cm, fill=red!40] {Abortar: Entrada\\inválida};
+    
+    \node (print_id) [io, below of=val_input, yshift=-0.5cm] {Registrar e imprimir ID\\$\alpha [q] \beta$ y cinta};
+    \node (check_trans) [decision, below of=print_id, yshift=-0.6cm] {¿Existe $\delta(q, s)$?};
+    
+    \node (check_type) [decision, below of=check_trans, yshift=-0.7cm] {¿Acción es\\Movimiento o Escritura?};
+    \node (do_move) [process, left of=check_type, xshift=-2.2cm] {Desplazar cabezal\\$pos \leftarrow pos \pm 1$};
+    \node (do_write) [process, right of=check_type, xshift=2.2cm] {Sobreescribir celda\\$cinta[pos] \leftarrow a_k$};
+    
+    \node (update_state) [process, below of=check_type, yshift=-0.7cm] {$q \leftarrow q_{\text{destino}}$, Pasos $\leftarrow$ Pasos $+ 1$};
+    \node (check_cancel) [decision, below of=update_state, yshift=-0.5cm] {¿Cancelación\\o Ctrl+C?};
+    
+    \node (halt) [process, right of=check_trans, xshift=4.2cm] {Parada de la máquina\\(Halt)};
+    \node (extract) [io, below of=halt, yshift=-1.0cm] {Extraer resultado\\limpiando blancos $B$};
+    \node (end) [startstop, below of=extract] {Fin de Simulación};
+
+    % Conexiones
+    \draw [arrow] (start) -- (read_yaml);
+    \draw [arrow] (read_yaml) -- (val_yaml);
+    \draw [arrow] (val_yaml) -- node[anchor=south] {No} (err_spec);
+    \draw [arrow] (val_yaml) -- node[anchor=east] {Sí} (init_tape);
+    \draw [arrow] (init_tape) -- (val_input);
+    \draw [arrow] (val_input) -- node[anchor=south] {No} (err_input);
+    \draw [arrow] (val_input) -- node[anchor=east] {Sí} (print_id);
+    
+    \draw [arrow] (print_id) -- (check_trans);
+    \draw [arrow] (check_trans) -- node[anchor=south] {No} (halt);
+    \draw [arrow] (check_trans) -- node[anchor=east] {Sí} (check_type);
+    
+    \draw [arrow] (check_type) -- node[anchor=south] {Movimiento} (do_move);
+    \draw [arrow] (check_type) -- node[anchor=south] {Escritura} (do_write);
+    
+    \draw [arrow] (do_move) |- (update_state);
+    \draw [arrow] (do_write) |- (update_state);
+    
+    \draw [arrow] (update_state) -- (check_cancel);
+    \draw [arrow] (check_cancel) -- node[anchor=south] {Sí} ++(5.5,0) |- (extract);
+    \draw [arrow] (check_cancel) -- node[anchor=east] {No} ++(-4.5,0) |- (print_id);
+    
+    \draw [arrow] (halt) -- (extract);
+    \draw [arrow] (extract) -- (end);
+\end{tikzpicture}
+\caption{Diagrama de flujo de la ejecución y control del simulador de Máquinas de Turing.}
+\label{fig:flowchart}
+\end{figure}
+
+% ========================================================
+\section{Máquinas de Turing de Ejemplo y Análisis Asintótico}
+% ========================================================
+
+En estricto cumplimiento con la directiva de no repetir algoritmos con otros grupos de trabajo, se seleccionaron, diseñaron e implementaron dos máquinas de Turing originales:
+\begin{enumerate}
+    \item \textbf{Máquina 1 (Aritmética):} Predecesor Binario ($n - 1$).
+    \item \textbf{Máquina 2 (Reconocimiento de Lenguajes):} Verificador de Palíndromos sobre $\{0, 1\}^*$.
+\end{enumerate}
+
+% --------------------------------------------------------
+\subsection{Máquina 1: Predecesor Binario ($n - 1$)}
+% --------------------------------------------------------
+
+\subsubsection{Definición Formal y Propósito}
+Dado un número binario positivo $N \in \{0, 1\}^+$ escrito en la cinta, la máquina resta 1 a su valor aritmético ($N - 1$) propagando los préstamos (\textit{borrows}) necesarios de derecha a izquierda, y deja el resultado exacto sobre la cinta con el cabezal posicionado en el inicio del número.
+
+Formalmente:
+\begin{itemize}
+    \item $Q = \{q_0, q_1, q_{\text{borrow}}, q_2, q_{\text{fin}}\}$
+    \item $\Sigma = \{0, 1\}$, $\Gamma = \{0, 1, B\}$, $q_0 = q_0$, $B = B$
+    \item Parada normal: Al alcanzar el estado $q_{\text{fin}}$ sobre el primer bit resultante.
+\end{itemize}
+
+\subsubsection{Tabla de Transiciones (Cuádruplas)}
+\begin{table}[h!]
+\centering
+\small
+\begin{tabular}{ccccc}
+\toprule
+\textbf{Cuádrupla} & \textbf{Estado Origen} & \textbf{Símbolo Leído} & \textbf{Acción} & \textbf{Estado Siguiente} \\
+\midrule
+1 & $q_0$ & \texttt{0} & $R$ (Mover Derecha) & $q_0$ \\
+2 & $q_0$ & \texttt{1} & $R$ (Mover Derecha) & $q_0$ \\
+3 & $q_0$ & \texttt{B} & $L$ (Mover Izquierda) & $q_1$ \\
+\midrule
+4 & $q_1$ & \texttt{1} & \texttt{0} (Escribir 0) & $q_2$ \\
+5 & $q_1$ & \texttt{0} & \texttt{1} (Escribir 1) & $q_{\text{borrow}}$ \\
+6 & $q_{\text{borrow}}$ & \texttt{1} & $L$ (Mover Izquierda) & $q_1$ \\
+\midrule
+7 & $q_2$ & \texttt{0} & $L$ (Mover Izquierda) & $q_2$ \\
+8 & $q_2$ & \texttt{1} & $L$ (Mover Izquierda) & $q_2$ \\
+9 & $q_2$ & \texttt{B} & $R$ (Mover Derecha) & $q_{\text{fin}}$ \\
+\bottomrule
+\end{tabular}
+\caption{Función de transición para la máquina Predecesor Binario.}
+\end{table}
+
+\subsubsection{Trazas de Prueba Ejecutadas}
+\begin{itemize}
+    \item \textbf{Prueba 1 ($1100_2 \to 1011_2$):} 13 pasos de computación.
+    \begin{quote}\footnotesize
+    $[q_0]1100 \vdash 1[q_0]100 \vdash 11[q_0]00 \vdash 110[q_0]0 \vdash 1100[q_0]B \vdash 110[q_1]0 \vdash 110[q_{\text{borrow}}]1 \vdash 11[q_1]01 \vdash 11[q_{\text{borrow}}]11 \vdash 1[q_1]111 \vdash 1[q_2]011 \vdash [q_2]1011 \vdash [q_2]B1011 \vdash [q_{\text{fin}}]1011$.
+    \end{quote}
+    \item \textbf{Prueba 2 ($1010_2 \to 1001_2$):} 12 pasos de computación.
+    \item \textbf{Prueba 3 ($1000_2 \to 0111_2$):} 14 pasos de computación.
+    \item \textbf{Prueba 4 ($1_2 \to 0_2$):} 5 pasos de computación.
+\end{itemize}
+
+\subsubsection{Análisis de Complejidad Asintótica}
+Sea $n = |w|$ la longitud en bits de la cadena de entrada binaria. El algoritmo consta de tres fases secuenciales bien delimitadas:
+\begin{enumerate}
+    \item \textbf{Fase 1 (Búsqueda del extremo derecho):} El cabezal inicia en el bit más significativo ($pos = 0$) y avanza a la derecha hasta leer el primer espacio en blanco en $pos = n$. Se ejecutan exactamente $n$ movimientos $R$ en $q_0$ y $1$ movimiento $L$ para ubicarse en el bit menos significativo ($pos = n-1$). Esta fase requiere exactamente $n + 1$ pasos.
+    \item \textbf{Fase 2 (Resta y propagación de préstamos):} Si el número termina en $k$ ceros ($0 \le k < n$), cada cero requiere 1 escritura (cambia a \texttt{1}) y 1 movimiento $L$ hacia la izquierda, tomando $2k$ pasos. Al alcanzar el primer bit \texttt{1}, se realiza 1 escritura (cambia a \texttt{0}). Dado que a lo sumo se recorren todos los $n$ bits de la entrada, esta fase ejecuta a lo sumo $2(n-1) + 1 = 2n - 1$ pasos.
+    \item \textbf{Fase 3 (Retorno del cabezal al inicio):} El cabezal se encuentra a lo sumo en la posición $pos = n - k - 1$ y retrocede hacia la izquierda hasta encontrar el blanco en $pos = -1$, seguido de un movimiento $R$ para reposicionarse en $pos = 0$. Esto requiere a lo sumo $n + 1$ pasos.
+\end{enumerate}
+
+Sumando las tres fases, el tiempo total de ejecución $T(n)$ en el peor de los casos satisface:
+\begin{equation}
+T_{\text{peor}}(n) = (n + 1) + (2n - 1) + (n + 1) = 4n + 1
+\end{equation}
+Para cualquier entrada de tamaño $n \ge 1$:
+\begin{equation}
+c_1 n \le T(n) \le c_2 n
+\end{equation}
+Por consiguiente, la tasa de crecimiento asintótico del Predecesor Binario es estrictamente:
+\begin{equation}
+\mathbf{\Theta(n) \quad \text{o en cota superior} \quad O(n)}
+\end{equation}
+
+% --------------------------------------------------------
+\subsection{Máquina 2: Verificador de Palíndromos sobre $\{0, 1\}$}
+% --------------------------------------------------------
+
+\subsubsection{Definición Formal y Propósito}
+Determina si una cadena binaria $w \in \{0, 1\}^*$ es simétrica ($w = w^R$). La máquina compara el primer símbolo con el último; si coinciden, los consume (sustituyéndolos por espacios en blanco $B$) y repite el proceso hacia el centro. Si todos los pares coinciden, escribe \textbf{\texttt{Y}} (\textit{Yes / Aceptada}). Si ocurre una discrepancia, escribe \textbf{\texttt{N}} (\textit{No / Rechazada}) y limpia el residuo de la cinta.
+
+Formalmente:
+\begin{itemize}
+    \item $Q = \{q_{\text{start}}, q_{\text{saw0\_move}}, q_{\text{saw1\_move}}, q_{\text{find\_end0}}, q_{\text{find\_end1}}, q_{\text{check0}}, q_{\text{check1}}, q_{\text{return\_move}}, q_{\text{return\_left}}, q_{\text{clean\_start}}, q_{\text{clean\_left}}, q_{\text{clean\_move}}, q_{\text{halt}}\}$
+    \item $\Sigma = \{0, 1\}$, $\Gamma = \{0, 1, B, Y, N\}$, $q_0 = q_{\text{start}}$, $B = B$
+    \item Parada: Estado $q_{\text{halt}}$, con el veredicto (\texttt{Y} o \texttt{N}) como único contenido en la cinta.
+\end{itemize}
+
+\subsubsection{Tabla de Transiciones (Cuádruplas)}
+\begin{table}[h!]
+\centering
+\footnotesize
+\begin{tabular}{ccccc}
+\toprule
+\textbf{\#} & \textbf{Estado Origen} & \textbf{Símbolo Leído} & \textbf{Acción} & \textbf{Estado Siguiente} \\
+\midrule
+1 & $q_{\text{start}}$ & \texttt{0} & \texttt{B} & $q_{\text{saw0\_move}}$ \\
+2 & $q_{\text{start}}$ & \texttt{1} & \texttt{B} & $q_{\text{saw1\_move}}$ \\
+3 & $q_{\text{start}}$ & \texttt{B} & \texttt{Y} & $q_{\text{halt}}$ \\
+\midrule
+4 & $q_{\text{saw0\_move}}$ & \texttt{B} & $R$ & $q_{\text{find\_end0}}$ \\
+5 & $q_{\text{saw1\_move}}$ & \texttt{B} & $R$ & $q_{\text{find\_end1}}$ \\
+\midrule
+6 & $q_{\text{find\_end0}}$ & \texttt{0} / \texttt{1} & $R$ & $q_{\text{find\_end0}}$ \\
+7 & $q_{\text{find\_end0}}$ & \texttt{B} & $L$ & $q_{\text{check0}}$ \\
+8 & $q_{\text{find\_end1}}$ & \texttt{0} / \texttt{1} & $R$ & $q_{\text{find\_end1}}$ \\
+9 & $q_{\text{find\_end1}}$ & \texttt{B} & $L$ & $q_{\text{check1}}$ \\
+\midrule
+10 & $q_{\text{check0}}$ & \texttt{0} & \texttt{B} & $q_{\text{return\_move}}$ \\
+11 & $q_{\text{check0}}$ & \texttt{B} & \texttt{Y} & $q_{\text{halt}}$ \\
+12 & $q_{\text{check0}}$ & \texttt{1} & \texttt{N} & $q_{\text{clean\_start}}$ \\
+13 & $q_{\text{check1}}$ & \texttt{1} & \texttt{B} & $q_{\text{return\_move}}$ \\
+14 & $q_{\text{check1}}$ & \texttt{B} & \texttt{Y} & $q_{\text{halt}}$ \\
+15 & $q_{\text{check1}}$ & \texttt{0} & \texttt{N} & $q_{\text{clean\_start}}$ \\
+\midrule
+16 & $q_{\text{return\_move}}$ & \texttt{B} & $L$ & $q_{\text{return\_left}}$ \\
+17 & $q_{\text{return\_left}}$ & \texttt{0} / \texttt{1} & $L$ & $q_{\text{return\_left}}$ \\
+18 & $q_{\text{return\_left}}$ & \texttt{B} & $R$ & $q_{\text{start}}$ \\
+\midrule
+19 & $q_{\text{clean\_start}}$ & \texttt{N} & $L$ & $q_{\text{clean\_left}}$ \\
+20 & $q_{\text{clean\_left}}$ & \texttt{0} / \texttt{1} & \texttt{B} & $q_{\text{clean\_move}}$ \\
+21 & $q_{\text{clean\_left}}$ & \texttt{B} & $R$ & $q_{\text{halt}}$ \\
+22 & $q_{\text{clean\_move}}$ & \texttt{B} & $L$ & $q_{\text{clean\_left}}$ \\
+\bottomrule
+\end{tabular}
+\caption{Función de transición resumida para el Verificador de Palíndromos.}
+\end{table}
+
+\subsubsection{Trazas de Prueba Ejecutadas}
+\begin{itemize}
+    \item \textbf{Palíndromo impar ($10101 \to \texttt{Y}$):} 26 pasos de simulación. Coinciden extremos en \texttt{1}, luego en \texttt{0}, y el símbolo central \texttt{1} detecta blanco adyacente y escribe \texttt{Y}.
+    \item \textbf{Palíndromo par ($1001 \to \texttt{Y}$):} 19 pasos de simulación. Ambos pares coinciden y la cinta vacía final transiciona a \texttt{Y}.
+    \item \textbf{No palíndromo ($10110 \to \texttt{N}$):} 16 pasos de simulación. El extremo izquierdo (\texttt{1}) discrepa con el derecho (\texttt{0}); escribe \texttt{N}, limpia los bits internos restantes y concluye.
+    \item \textbf{Longitudes unitarias y cadena vacía ($1 \to \texttt{Y}$, $0 \to \texttt{Y}$, $\epsilon \to \texttt{Y}$):} 4, 4 y 1 pasos respectivamente.
+\end{itemize}
+
+\subsubsection{Análisis de Complejidad Asintótica}
+Sea $n = |w|$ la longitud de la cadena de entrada. En el peor de los casos (la cadena es efectivamente un palíndromo), el algoritmo realiza $\lceil n/2 \rceil$ iteraciones de comparación. En la iteración $i$-ésima ($i = 0, 1, \dots, \lceil n/2 \rceil - 1$):
+\begin{enumerate}
+    \item Borra el símbolo izquierdo: 1 paso.
+    \item Recorre los símbolos restantes hasta el extremo derecho: la porción restante tiene longitud $n - 2i - 1$. Requiere $n - 2i$ desplazamientos a la derecha.
+    \item Compara y borra el símbolo derecho coincidente: 1 paso de lectura/escritura.
+    \item Retorna hacia la izquierda a través de los $n - 2i - 2$ símbolos intermedios hasta encontrar el blanco izquierdo: $n - 2i - 1$ desplazamientos a la izquierda.
+\end{enumerate}
+
+Por tanto, en cada ronda se ejecutan aproximadamente:
+\begin{equation}
+T_{\text{ronda}}(i) = 2(n - 2i) + c
+\end{equation}
+Sumando sobre todas las $\approx \frac{n}{2}$ iteraciones:
+\begin{equation}
+T(n) = \sum_{i=0}^{n/2} [2(n - 2i) + c] = 2n \left(\frac{n}{2}\right) - 4 \sum_{i=0}^{n/2} i + c \frac{n}{2} = n^2 - 4 \frac{(n/2)^2}{2} + O(n) = \frac{1}{2} n^2 + O(n)
+\end{equation}
+Por ende, la tasa de crecimiento asintótico para el Verificador de Palíndromos en una Máquina de Turing de una cinta es cuadrática:
+\begin{equation}
+\mathbf{\Theta(n^2) \quad \text{o en cota superior} \quad O(n^2)}
+\end{equation}
+
+% ========================================================
+\section{Enlaces del Proyecto y Entrega}
+% ========================================================
+
+\begin{itemize}
+    \item \textbf{Repositorio en GitHub:} Código fuente del simulador, pruebas unitarias, archivos de especificación YAML y documentación técnica:\\[0.2cm]
+    \url{https://github.com/SamMejia23442/proyectofinal-teoria-compu.git}
+    
+    \item \textbf{Video de Presentación en YouTube (No Listado, máx. 7 minutos):}\\[0.2cm]
+    \url{https://www.youtube.com/watch?v=VIDEO_ID_AQUI} \\
+    \textit{(Nota: Reemplazar el identificador con el enlace del video no listado grabado por los integrantes antes de la entrega final).}
+\end{itemize}
+
+% ========================================================
+\section{Conclusiones}
+% ========================================================
+\begin{enumerate}
+    \item Se implementó con éxito un simulador determinista de Máquinas de Turing de una cinta no acotada y cabezal bidireccional, capaz de interpretar formalmente funciones de transición bajo el esquema de cuádruplas $(\text{origen}, \text{símbolo}, \text{acción}, \text{destino})$.
+    \item La programación defensiva implementada previene fallos en tiempo de ejecución al validar rigurosamente la consistencia de tipos, pertenencia de elementos a los alfabetos y ausencia de no-determinismo antes de procesar cualquier entrada.
+    \item El análisis asintótico formal concuerda con las métricas observadas durante las ejecuciones experimentales: las transformaciones que requieren un barrido simple (como el Predecesor Binario) operan en tiempo $O(n)$, mientras que los reconocedores de simetría en una única cinta (como el Verificador de Palíndromos) requieren inherentemente tiempo cuadrático $O(n^2)$ debido al costo de oscilación del cabezal entre los extremos de la cinta.
+\end{enumerate}
+
+\end{document}

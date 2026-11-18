@@ -1,0 +1,2 @@
+# Dependencias del proyecto
+pyyaml>=6.0

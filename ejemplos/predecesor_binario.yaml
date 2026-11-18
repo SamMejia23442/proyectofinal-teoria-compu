@@ -1,0 +1,23 @@
+mt:
+  estados: [q0, q1, q_borrow, q2, q_fin]
+  alfabeto: ["0", "1", B]
+  estado_inicial: q0
+  blanco: B
+  transiciones:
+    # Fase 1: Desplazarse a la derecha hasta encontrar el blanco que delimita el fin del número
+    - q0 0 R q0
+    - q0 1 R q0
+    - q0 B L q1
+
+    # Fase 2: Restar 1 al bit menos significativo (LSB) y propagar préstamos (borrows)
+    # Si encuentra un 1, lo vuelve 0 (1 - 1 = 0) y el préstamo termina (pasa a q2)
+    - q1 1 0 q2
+    # Si encuentra un 0, se convierte en 1 (0 - 1 = 1) y pide prestado al bit de la izquierda
+    - q1 0 1 q_borrow
+    # En q_borrow, el cabezal lee el 1 recién escrito y se mueve a la izquierda para continuar la resta
+    - q_borrow 1 L q1
+
+    # Fase 3: Retornar el cabezal hacia el bit más significativo (inicio del número)
+    - q2 0 L q2
+    - q2 1 L q2
+    - q2 B R q_fin
