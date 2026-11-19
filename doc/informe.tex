@@ -59,29 +59,60 @@
 \tikzstyle{io} = [trapezium, trapezium left angle=70, trapezium right angle=110, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=blue!20]
 \tikzstyle{arrow} = [thick,->,>=stealth]
 
-% --- Información de Portada ---
-\title{
-    \vspace{-1.5cm}
-    \includegraphics[width=2.6cm]{logo_uvg.png}\\[0.3cm]
-    \textbf{Universidad del Valle de Guatemala}\\
-    \large Facultad de Ingeniería — Departamento de Ciencias de la Computación\\
-    CC2019: Teoría de la Computación (Sección 30)\\
-    Semestre 2, 2026\\[1.2cm]
-    \LARGE \textbf{Proyecto \#3: Simulador Universal de Máquinas de Turing}\\[0.4cm]
-    \large Informe Técnico de Implementación, Especificación Formal y Análisis Asintótico
-}
-
-\author{
-    \textbf{Samuel Mejía} — Carnet: \textit{23442}\\[0.2cm]
-    \small \textit{Docente:} Tomás Gálvez P.
-}
-
-\date{\today}
-
+% ========================================================
+% Portada Institucional (Estilo UVG)
+% ========================================================
 \begin{document}
 
-\maketitle
-\vspace{0.5cm}
+\begin{titlepage}
+    \centering
+    \vspace*{0.3cm}
+    
+    {\bfseries\Large UNIVERSIDAD DEL VALLE DE GUATEMALA\par}
+    \vspace{0.25cm}
+    {\large Facultad de Ingeniería\par}
+    {\large Departamento de Ciencias de la Computación\par}
+    
+    \vspace{0.8cm}
+    \includegraphics[width=4.5cm]{logo_uvg.png}\par
+    \vspace{0.8cm}
+    
+    {\large CC2019 -- Teoría de la Computación\par}
+    {\large Ciclo 2 de 2026\par}
+    
+    \vspace{1.2cm}
+    
+    {\bfseries\LARGE Proyecto 3: Simulador Universal de\\ Máquinas de Turing\par}
+    
+    \vspace{0.6cm}
+    
+    {\large Implementación formal bajo el modelo de cuádruplas, programación defensiva y análisis asintótico de complejidad temporal\par}
+    
+    \vfill
+    
+    {\bfseries\large Integrantes del grupo:\par}
+    \vspace{0.3cm}
+    {\large
+    Samuel Mejía -- 23442\par
+    % Descomentar y completar si el grupo tiene 2 o 3 integrantes:
+    % Nombre Integrante 2 -- Carnet\par
+    % Nombre Integrante 3 -- Carnet\par
+    }
+    
+    \vspace{1.2cm}
+    
+    {\small
+    \textbf{Repositorio:} \url{https://github.com/SamMejia23442/proyectofinal-teoria-compu.git}\par
+    \vspace{0.15cm}
+    \textbf{Presentación:} \url{https://www.youtube.com/watch?v=VIDEO_ID_AQUI}\par
+    \vspace{0.25cm}
+    Guatemala, noviembre de 2026\par
+    }
+    
+\end{titlepage}
+
+\newpage
+\thispagestyle{plain}
 
 \begin{abstract}
 En este informe se presenta el diseño, especificación formal e implementación de un simulador universal de Máquinas de Turing deterministas estándar de una cinta infinita bidireccional y cabezal único. El motor interpreta especificaciones en formato YAML basadas en la convención formal de cuádruplas $(\text{origen}, \text{símbolo}, \text{acción}, \text{destino})$, incorporando programación defensiva integral contra especificaciones mal formadas, transiciones no deterministas o entradas inválidas. Asimismo, se documenta la computación paso a paso mediante Descripciones Instantáneas (IDs), el control de ejecución preventivo con cancelación de ciclos indefinidos, y la demostración formal de la tasa de crecimiento asintótico para dos máquinas originales: un \textit{Predecesor Binario} ($O(n)$) y un \textit{Verificador de Palíndromos} ($O(n^2)$).
